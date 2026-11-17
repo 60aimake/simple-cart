@@ -561,7 +561,13 @@ document.getElementById('btnSend').onclick = function(){
   /* 폰·태블릿 : 공유 시트 → 카톡이 목록에 뜬다
      PC        : 공유 시트를 건너뛰고 바로 복사한다 (막다른 길을 없앴다) */
   if(navigator.share && isTouch()){
-    navigator.share({text:t}).then(function(){}, function(){ copyThen(t); });
+    navigator.share({text:t}).then(function(){}, function(err){
+      /* 사용자가 공유창을 닫은 것이면 조용히 끝낸다.
+         여기서 복사를 시도하면 아이폰은 손가락 누른 순간이 지나 복사가 막히고,
+         맨 마지막 보루인 「이 글을 복사해 보내세요」 창이 뜬다 — 2026-11-17 친구 실측 */
+      if(err && err.name === 'AbortError') return;
+      copyThen(t);
+    });
     return;
   }
   copyThen(t);
