@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>편한 장바구니</title>
+<style>
+:root{
+  --bg:#f7f8fa; --card:#fff; --line:#dfe3ea; --txt:#1b2030; --dim:#6b7488;
+  --gr:#1f9d55; --yl:#f0a500; --bl:#2f6fde; --rd:#d23b3b; --chip:#eef1f6;
+}
+:root:not([data-theme="light"]){
+  @media (prefers-color-scheme:dark){
+    --bg:#0e1117; --card:#171c26; --line:#2a3140; --txt:#e9edf5; --dim:#99a3b8; --chip:#222938;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1117; --card:#171c26; --line:#2a3140; --txt:#e9edf5; --dim:#99a3b8; --chip:#222938;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--txt);
+ font:17px/1.5 "Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+ -webkit-text-size-adjust:100%}
+.wrap{max-width:720px;margin:0 auto;padding:14px 16px 110px}
+h1{font-size:20px;margin:2px 0 12px}
+h1 small{font-weight:400;color:var(--dim);font-size:13px;margin-left:6px}
+.modes{display:flex;gap:8px;margin-bottom:14px}
+.modes button{flex:1;padding:13px 8px;border:1px solid var(--line);background:var(--card);
+ color:var(--dim);border-radius:12px;font-size:16px;font-weight:700;cursor:pointer}
+.modes button.on{background:var(--bl);border-color:var(--bl);color:#fff}
+
+.addbar{display:flex;gap:8px;margin-bottom:6px}
+.addbar input{flex:1;min-width:0;padding:13px 12px;font-size:17px;border:1px solid var(--line);
+ border-radius:12px;background:var(--card);color:var(--txt)}
+.addbar button{padding:0 18px;border:0;border-radius:12px;background:var(--gr);color:#fff;
+ font-size:16px;font-weight:700;cursor:pointer}
+.hint{color:var(--dim);font-size:13px;margin:0 0 12px}
+
+#ask{margin:0 0 12px;display:none}
+#ask .lbl{font-size:13px;color:var(--dim);margin-bottom:6px}
+#ask button{margin:0 6px 6px 0;padding:8px 12px;border:1px dashed var(--line);
+ background:var(--chip);color:var(--txt);border-radius:999px;font-size:15px;cursor:pointer}
+
+h2{font-size:15px;color:var(--dim);margin:18px 0 8px;font-weight:700;
+ display:flex;justify-content:space-between;align-items:center}
+.clr{border:1px solid var(--line);background:transparent;color:var(--dim);font-size:13px;
+ padding:5px 10px;border-radius:999px;cursor:pointer}
+
+/* 살 것 목록 */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;padding:10px}
+.li{border:1px solid var(--line);border-radius:10px;padding:8px 7px 7px;display:flex;
+ flex-direction:column;gap:6px;min-width:0;overflow:hidden}
+.li .nm{font-size:15px;line-height:1.2;word-break:keep-all;overflow-wrap:anywhere}
+.li .unit{color:var(--dim);font-size:13px}
+.ctl{display:flex;align-items:center;gap:5px;justify-content:space-between;min-width:0}
+.qty{flex:0 1 46px;min-width:30px;padding:6px 2px;text-align:center;font-size:16px;
+ border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--txt)}
+.x{border:0;background:transparent;color:var(--dim);font-size:19px;cursor:pointer;padding:2px 4px;line-height:1}
+.ck{width:30px;height:30px;border:2px solid var(--line);border-radius:8px;background:transparent;
+ cursor:pointer;padding:0;position:relative;flex-shrink:0}
+.ck.on{background:var(--gr);border-color:var(--gr)}
+.ck.on::after{content:"";position:absolute;left:8px;top:4px;width:7px;height:13px;
+ border:solid #fff;border-width:0 3px 3px 0;transform:rotate(42deg)}
+.li.done .nm{text-decoration:line-through;color:var(--dim)}
+.li.done{background:rgba(31,157,85,.12);border-color:var(--gr)}
+.empty{color:var(--dim);text-align:center;padding:26px 10px;font-size:15px}
+
+/* 분류 · 칩 */
+.cat{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:9px;overflow:hidden}
+.cat>summary{list-style:none;cursor:pointer;padding:12px 14px;font-weight:700;
+ display:flex;justify-content:space-between;align-items:center}
+.cat>summary::-webkit-details-marker{display:none}
+.cat>summary .n{color:var(--dim);font-weight:400;font-size:14px}
+.cat[open]>summary{border-bottom:1px solid var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;padding:11px 12px 13px}
+.chip{padding:9px 13px;border:1px solid var(--line);background:var(--chip);color:var(--txt);
+ border-radius:999px;font-size:16px;cursor:pointer;line-height:1.2}
+.chip.on{background:var(--bl);border-color:var(--bl);color:#fff;font-weight:700}
+
+/* 장보는 중 */
+body.shop .grid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+body.shop .li .nm{font-size:17px;font-weight:700}
+body.shop .ck{width:34px;height:34px}
+body.shop .ck.on::after{left:10px;top:5px;width:8px;height:15px}
+body.shop .qty{flex:0 1 44px;font-size:16px}
+
+.bar{position:fixed;left:0;right:0;bottom:0;max-width:720px;margin:0 auto;
+ padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+ background:linear-gradient(to top,var(--bg) 70%,transparent);display:flex;gap:8px}
+.bar button{flex:1;padding:15px 8px;border:0;border-radius:12px;font-size:17px;font-weight:700;cursor:pointer}
+.b1{background:var(--chip);color:var(--txt)}
+.b2{background:var(--bl);color:#fff}
+
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;
+ justify-content:center;padding:20px;z-index:9}
+.mask.on{display:flex}
+.pop{background:var(--card);border-radius:16px;padding:22px 20px;max-width:380px;width:100%}
+.pop h3{margin:0 0 14px;font-size:19px}
+.pop .line{display:flex;justify-content:space-between;padding:5px 0;font-size:16px}
+.pop .miss{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:16px;
+ max-height:34vh;overflow:auto}
+.pop .miss b{color:var(--rd)}
+.pop .btns{display:flex;gap:8px;margin-top:18px}
+.pop .btns button{flex:1;padding:13px 6px;border:0;border-radius:11px;font-size:16px;font-weight:700;cursor:pointer}
+#toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#222938;color:#fff;
+ padding:10px 16px;border-radius:999px;font-size:15px;opacity:0;transition:opacity .25s;
+ pointer-events:none;z-index:20;max-width:90%}
+#toast.on{opacity:.95}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <h1>편한 장바구니 <small id="sub"></small></h1>
+
+  <div class="modes">
+    <button id="mPlan" class="on">계획 중</button>
+    <button id="mShop">장보는 중</button>
+  </div>
+
+  <div id="planUI">
+    <div class="addbar">
+      <input id="inp" placeholder="말하거나 적으세요 — 양파 대파 우유 두 개" autocomplete="off">
+      <button id="btnAdd">담기</button>
+    </div>
+    <p class="hint">키보드의 🎤 를 눌러 말씀하셔도 됩니다. 아래에서 눌러 고르셔도 됩니다.</p>
+    <div id="ask"><div class="lbl">이것도 담을까요?</div><div id="askBtns"></div></div>
+  </div>
+
+  <h2 id="h2list">살 것<button id="btnClear" class="clr">목록 비우기</button></h2>
+  <div class="panel" id="list"></div>
+
+  <div id="picker"></div>
+</div>
+
+<div class="bar">
+  <button class="b1" id="btnSend">카톡으로 보내기</button>
+  <button class="b2" id="btnDone">다 샀다</button>
+</div>
+
+<div class="mask" id="mask"><div class="pop" id="pop"></div></div>
+<div id="toast"></div>
+
+<script>
+(function(){
+
+/* ───── 기본 품목 196개 ───── */
+var BASE = [
+['채소','배추 무우 고추 상추 양파 대파 쪽파 마늘 감자 애호박 단호박 오이 당근 미나리 부추 파프리카 피망 깻잎 시금치 고구마 연근 더덕 도라지 생강 브로콜리 콩나물 숙주 버섯 가지 양배추 열무 쑥갓 콩'],
+['과일','사과 배 귤 감 단감 바나나 포도 딸기 수박 참외 복숭아 자두 키위 오렌지 레몬 파인애플 멜론 토마토 방울토마토 블루베리 밤 대추'],
+['고기·달걀','삼겹살 목살 등심 안심 갈비 사태 불고기감 다진고기 닭고기 닭다리 닭날개 닭가슴살 오리고기 소시지 햄 베이컨 달걀 메추리알 양고기 돼지내장'],
+['생선·해물','고등어 갈치 삼치 조기 동태 명태 코다리 오징어 낙지 새우 게 조개 바지락 홍합 멸치 김 미역 다시마 어묵 맛살 연어 쭈꾸미 킹크랩 광어 문어 우럭 돔 병어 홍어'],
+['두부·유제품','두부 순두부 유부 우유 요구르트 치즈 버터 생크림 두유 연유 비지'],
+['쌀·면·빵·가루','쌀 찹쌀 잡곡 라면 국수 칼국수 냉면 당면 스파게티 떡국떡 떡볶이떡 식빵 모닝빵 밀가루 부침가루 튀김가루 빵가루 전분 떡 도토리묵'],
+['양념·장·기름','간장 국간장 고추장 된장 쌈장 고춧가루 소금 설탕 후추 식초 물엿 올리고당 맛술 다진마늘 액젓 깨소금 조미료 카레 식용유 참기름 들기름 올리브유 마요네즈 케찹'],
+['냉동·간편식','만두 돈까스 너겟 핫도그 감자튀김 냉동피자 냉동야채 즉석밥 참치캔 스팸 옥수수캔 김치 반찬 국 삼각김밥'],
+['음료·간식','생수 커피 믹스커피 녹차 보리차 주스 탄산음료 식혜 과자 사탕 초콜릿 아이스크림 견과류'],
+['생활용품','휴지 물티슈 키친타월 종이컵 세제 섬유유연제 표백제 주방세제 수세미 고무장갑 비닐봉투 지퍼백 호일 랩 쓰레기봉투 방향제 샴푸 린스 바디워시 비누 치약 칫솔 면도기 건전지']
+];
+/* 같은 물건을 다르게 부르는 말 */
+var ALIAS = {
+ '무우':['무'],'달걀':['계란'],'대파':['파'],'주방세제':['퐁퐁'],'휴지':['화장지'],
+ '요구르트':['요거트'],'식빵':['빵'],'닭고기':['닭'],'케찹':['케첩'],
+ '다진고기':['간고기','간 고기','다진 고기'],'참치캔':['참치'],'쓰레기봉투':['종량제봉투'],
+ '옥수수캔':['옥수수'],'다진마늘':['간마늘'],'고춧가루':['고추가루'],'떡볶이떡':['떡볶이 떡'],
+ '방울토마토':['방울 토마토'],'쭈꾸미':['주꾸미'],'돼지내장':['곱창'],'즉석밥':['햇반']
+};
+var MINE = '내가 넣은 것';
+
+var CNT = '개|봉지|병|팩|판|통|마리|모|장|송이|단|줄|포';
+var AMT = 'kg|KG|킬로|키로|그램|g|리터|L|근|포기|인분';
+var KNUM = {'한':1,'두':2,'세':3,'네':4,'다섯':5,'여섯':6,'일곱':7,'여덟':8,'아홉':9,'열':10};
+var BARE = {'하나':1,'둘':2,'셋':3,'넷':4,'다섯':5};
+var STOP = ['하고','사야','사고','그리고','이랑','주세요','가자','그다음','사오','사와','해야','해줘'];
+
+/* ───── 상태 ───── */
+var CATS = [], ALL = [];     /* ALL : {name,cat} */
+BASE.forEach(function(b){
+  CATS.push(b[0]);
+  b[1].split(' ').forEach(function(n){ ALL.push({name:n, cat:b[0]}); });
+});
+var S = { mode:'plan', pick:{}, open:{} };   /* pick[name] = {name,cat,qty,bought,unit} */
+
+function catOf(n){
+  for(var i=0;i<ALL.length;i++) if(ALL[i].name===n) return ALL[i].cat;
+  return MINE;
+}
+function picked(){
+  var out=[];
+  CATS.concat([MINE]).forEach(function(c){
+    ALL.filter(function(a){return a.cat===c;}).forEach(function(a){
+      if(S.pick[a.name]) out.push(S.pick[a.name]);
+    });
+  });
+  Object.keys(S.pick).forEach(function(k){
+    if(out.indexOf(S.pick[k])<0) out.push(S.pick[k]);
+  });
+  return out;
+}
+function add(name, qty, unit){
+  if(!S.pick[name]) S.pick[name] = {name:name, cat:catOf(name), qty:qty||1, bought:false, unit:unit||''};
+  else { if(qty) S.pick[name].qty = qty; if(unit) S.pick[name].unit = unit; }
+}
+
+/* ───── 저장 ───── */
+function save(){
+  try{ localStorage.setItem('shop2', JSON.stringify(S.pick)); }catch(e){}
+}
+function load(){
+  try{
+    var r = localStorage.getItem('shop2');
+    if(r){ var d = JSON.parse(r); if(d && typeof d === 'object') S.pick = d; }
+  }catch(e){}
+}
+
+/* ───── 말/글 한 줄 쪼개기 ───── */
+var WORDS = (function(){
+  var w=[];
+  ALL.forEach(function(a){
+    w.push([a.name, a.name]);
+    (ALIAS[a.name]||[]).forEach(function(x){ w.push([x, a.name]); });
+  });
+  w.sort(function(a,b){ return b[0].length - a[0].length; });
+  return w;
+})();
+function esc(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+var KP = Object.keys(KNUM).sort(function(a,b){return b.length-a.length;}).join('|');
+
+function qtyAfter(line, end){
+  var t = line.slice(end), m;
+  m = t.match(new RegExp('^\\s*(\\d+|'+KP+')\\s*('+AMT+')'));
+  if(m){ var a = /^\d+$/.test(m[1]) ? parseInt(m[1],10) : KNUM[m[1]];
+         if(a) return {n:1, unit:a+m[2]}; }
+  m = t.match(new RegExp('^\\s*(\\d+|'+KP+')\\s*('+CNT+')'));
+  if(m){ var b = /^\d+$/.test(m[1]) ? parseInt(m[1],10) : KNUM[m[1]];
+         if(b) return {n:b, unit:''}; }
+  m = t.match(/^\s*(\d+|하나|둘|셋|넷|다섯)(?![가-힣])/);
+  if(m) return {n: /^\d+$/.test(m[1]) ? parseInt(m[1],10) : BARE[m[1]], unit:''};
+  return null;
+}
+function parse(line){
+  var taken = [], got = [], i;
+  for(i=0;i<line.length;i++) taken.push(false);
+  for(var w=0; w<WORDS.length; w++){
+    var word = WORDS[w][0], name = WORDS[w][1];
+    var re = new RegExp(esc(word),'g'), m;
+    while((m = re.exec(line)) !== null){
+      var s = m.index, e = s + word.length, busy = false;
+      for(i=s;i<e;i++) if(taken[i]) busy = true;
+      if(busy) continue;
+      if(word.length === 1){
+        if(s > 0 && /[가-힣]/.test(line.charAt(s-1))) continue;
+        if(e < line.length && /[가-힣]/.test(line.charAt(e))) continue;
+      }
+      for(i=s;i<e;i++) taken[i] = true;
+      got.push({name:name, at:s, q:qtyAfter(line, e)});
+    }
+  }
+  got.sort(function(a,b){ return a.at-b.at; });
+  var restStr = '';
+  for(i=0;i<line.length;i++) restStr += taken[i] ? ' ' : line.charAt(i);
+  var rest = [];
+  restStr.split(/[\s,·]+/).forEach(function(t){
+    if(t.length < 2) return;
+    if(STOP.indexOf(t) >= 0) return;
+    if(new RegExp('^('+CNT+'|'+AMT+')').test(t)) return;
+    if(new RegExp('^('+KP+'|하나|둘|셋|넷)').test(t)) return;
+    if(rest.indexOf(t) < 0) rest.push(t);
+  });
+  return {got:got, rest:rest};
+}
+function addLine(line){
+  line = (line||'').trim();
+  if(!line) return;
+  var r = parse(line);
+  r.got.forEach(function(g){ add(g.name, g.q ? g.q.n : 1, g.q ? g.q.unit : ''); });
+  showAsk(r.rest);
+  if(r.got.length) toast(r.got.length + '가지 담았습니다');
+  else if(!r.rest.length) toast('알아듣지 못했습니다');
+  save(); render();
+}
+function showAsk(rest){
+  var box = document.getElementById('ask'), btns = document.getElementById('askBtns');
+  var have = [].slice.call(btns.children).map(function(b){ return b.textContent; });
+  var fresh = rest.filter(function(t){ return have.indexOf(t) < 0; });
+  if(!btns.children.length && !fresh.length){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  fresh.slice(0, 8 - have.length).forEach(function(t){
+    var b = document.createElement('button');
+    b.textContent = t;
+    b.onclick = function(){
+      ALL.push({name:t, cat:MINE});
+      add(t, 1, '');
+      b.parentNode.removeChild(b);
+      if(!btns.children.length) box.style.display = 'none';
+      save(); render();
+    };
+    btns.appendChild(b);
+  });
+}
+
+/* ───── 그리기 ───── */
+function render(){
+  var shop = S.mode === 'shop';
+  document.body.className = shop ? 'shop' : '';
+  document.getElementById('planUI').style.display = shop ? 'none' : '';
+  document.getElementById('picker').style.display = shop ? 'none' : '';
+  document.getElementById('mPlan').className = shop ? '' : 'on';
+  document.getElementById('mShop').className = shop ? 'on' : '';
+
+  var P = picked(), c = count();
+  document.getElementById('sub').textContent =
+    P.length ? ('살 것 ' + c.items + ' · 담음 ' + c.got) : '';
+  document.getElementById('h2list').firstChild.nodeValue = shop ? '장바구니' : '살 것';
+  document.getElementById('btnClear').style.display = shop ? 'none' : '';
+
+  var list = document.getElementById('list');
+  list.innerHTML = '';
+  if(!P.length){
+    list.innerHTML = '<div class="empty">' +
+      (shop ? '살 것이 없습니다.<br>「계획 중」에서 먼저 고르세요.'
+            : '아래에서 누르거나, 위에 말씀하시면 담깁니다.') + '</div>';
+  } else {
+    var g = document.createElement('div');
+    g.className = 'grid';
+    P.forEach(function(it){ g.appendChild(row(it, shop)); });
+    list.appendChild(g);
+  }
+
+  if(shop) return;
+
+  var pk = document.getElementById('picker');
+  pk.innerHTML = '';
+  var h = document.createElement('h2');
+  h.textContent = '눌러서 고르기';
+  pk.appendChild(h);
+  CATS.concat([MINE]).forEach(function(cat){
+    var its = ALL.filter(function(a){ return a.cat === cat; });
+    if(!its.length) return;
+    var on = its.filter(function(a){ return S.pick[a.name]; }).length;
+    var d = document.createElement('details');
+    d.className = 'cat';
+    if(cat === MINE || on || S.open[cat]) d.open = true;
+    d.addEventListener('toggle', function(){ S.open[cat] = d.open; });
+    var sm = document.createElement('summary');
+    sm.innerHTML = '<span>' + cat + '</span><span class="n">' +
+      (on ? on + ' / ' + its.length : its.length) + '</span>';
+    d.appendChild(sm);
+    var box = document.createElement('div');
+    box.className = 'chips';
+    its.forEach(function(a){
+      var b = document.createElement('button');
+      b.className = 'chip' + (S.pick[a.name] ? ' on' : '');
+      b.textContent = a.name;
+      b.onclick = function(){
+        if(S.pick[a.name]) delete S.pick[a.name];
+        else add(a.name, 1, '');
+        save(); render();
+      };
+      box.appendChild(b);
+    });
+    d.appendChild(box);
+    pk.appendChild(d);
+  });
+}
+function row(it, shop){
+  var li = document.createElement('div');
+  li.className = 'li' + (it.bought ? ' done' : '');
+
+  var nm = document.createElement('div');
+  nm.className = 'nm';
+  nm.textContent = it.name;
+  if(it.unit){ var u = document.createElement('div'); u.className='unit'; u.textContent=it.unit; nm.appendChild(u); }
+  li.appendChild(nm);
+
+  var ctl = document.createElement('div');
+  ctl.className = 'ctl';
+  var q = document.createElement('input');
+  q.className = 'qty'; q.type = 'text'; q.inputMode = 'numeric';
+  q.value = it.qty; q.setAttribute('aria-label', it.name + ' 개수');
+  q.onchange = function(){
+    var v = parseInt(q.value, 10);
+    it.qty = (isNaN(v) || v < 1) ? 1 : v;
+    q.value = it.qty; save(); render();
+  };
+  ctl.appendChild(q);
+
+  if(shop){
+    var ck = document.createElement('button');
+    ck.className = 'ck' + (it.bought ? ' on' : '');
+    ck.setAttribute('aria-label', it.name + ' 샀음');
+    ck.onclick = function(){ it.bought = !it.bought; save(); render(); };
+    ctl.appendChild(ck);
+  } else {
+    var x = document.createElement('button');
+    x.className = 'x'; x.textContent = '✕';
+    x.setAttribute('aria-label', it.name + ' 빼기');
+    x.onclick = function(){ delete S.pick[it.name]; save(); render(); };
+    ctl.appendChild(x);
+  }
+  li.appendChild(ctl);
+  return li;
+}
+
+function count(){
+  var P = picked(), got = 0, miss = [];
+  P.forEach(function(it){
+    if(it.bought) got++;
+    else miss.push(it.name + (it.qty > 1 ? ' ' + it.qty : ''));
+  });
+  return {items:P.length, got:got, miss:miss};
+}
+
+/* ───── 팝업 ───── */
+function popup(){
+  var c = count(), pop = document.getElementById('pop'), h;
+  if(!c.items){
+    h = '<h3>살 것이 없습니다</h3><div class="btns"><button class="b2" id="pNo">닫기</button></div>';
+    pop.innerHTML = h; open2();
+    document.getElementById('pNo').onclick = close2;
+    return;
+  }
+  h = '<h3>' + (c.miss.length ? '빠진 것이 있습니다' : '다 담으셨습니다 👍') + '</h3>';
+  h += '<div class="line"><span>살 것</span><span>' + c.items + ' 가지</span></div>';
+  h += '<div class="line"><span>담음</span><span>' + c.got + ' 가지</span></div>';
+  if(c.miss.length){
+    h += '<div class="line"><span>빠짐</span><span style="color:var(--rd);font-weight:700">' +
+         c.miss.length + ' 가지</span></div>';
+    h += '<div class="miss"><b>' + c.miss.join(' · ') + '</b></div>';
+    h += '<div class="btns"><button class="b2" id="pNo">더 담으러 갑니다</button>' +
+         '<button class="b1" id="pYes">이대로 끝냅니다</button></div>';
+  } else {
+    h += '<div class="btns"><button class="b2" id="pYes">끝내기</button></div>';
+  }
+  pop.innerHTML = h; open2();
+  var no = document.getElementById('pNo');
+  /* 더 담으러 → 고르는 창이 있는 「계획 중」으로. 담은 것은 그대로 둔다 */
+  if(no) no.onclick = function(){ close2(); S.mode='plan'; render(); };
+  /* 이대로 끝냅니다 → 장바구니 화면 그대로. 아무것도 지우지 않는다 */
+  document.getElementById('pYes').onclick = function(){
+    close2(); S.mode='shop'; render(); toast('끝냈습니다');
+  };
+}
+/* 목록을 비우는 것은 따로 — 한 번 더 물어본다 */
+function clearAsk(){
+  var n = picked().length;
+  if(!n){ toast('목록이 비어 있습니다'); return; }
+  document.getElementById('pop').innerHTML =
+    '<h3>목록을 비울까요?</h3>' +
+    '<div class="line"><span>지워질 것</span><span>' + n + ' 가지</span></div>' +
+    '<div class="miss">다음 장보기를 새로 시작합니다. 되돌릴 수 없습니다.</div>' +
+    '<div class="btns"><button class="b1" id="cNo">그냥 둡니다</button>' +
+    '<button class="b2" id="cYes" style="background:var(--rd)">비웁니다</button></div>';
+  open2();
+  document.getElementById('cNo').onclick = close2;
+  document.getElementById('cYes').onclick = function(){
+    S.pick = {}; close2(); S.mode='plan'; save(); render(); toast('목록을 비웠습니다');
+  };
+}
+function open2(){ document.getElementById('mask').className = 'mask on'; }
+function close2(){ document.getElementById('mask').className = 'mask'; }
+
+function text(){
+  var out = [];
+  picked().forEach(function(it){
+    out.push('□ ' + it.name + (it.unit ? ' ' + it.unit : (it.qty > 1 ? ' ' + it.qty : '')));
+  });
+  return out.length ? ('편한 장바구니\n' + out.join('\n')) : '';
+}
+function toast(m){
+  var t = document.getElementById('toast');
+  t.textContent = m; t.className = 'on';
+  setTimeout(function(){ t.className = ''; }, 1700);
+}
+
+/* ───── 연결 ───── */
+document.getElementById('mPlan').onclick = function(){ S.mode='plan'; render(); };
+document.getElementById('mShop').onclick = function(){ S.mode='shop'; render(); };
+document.getElementById('btnAdd').onclick = function(){
+  var i = document.getElementById('inp');
+  addLine(i.value); i.value=''; i.focus();
+};
+document.getElementById('inp').addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('btnAdd').click(); }
+});
+document.getElementById('btnDone').onclick = popup;
+document.getElementById('btnClear').onclick = clearAsk;
+document.getElementById('mask').onclick = function(e){ if(e.target.id === 'mask') close2(); };
+/* 옛 방식 복사 — 주소가 https 가 아니어도 되는 길 */
+function oldCopy(t){
+  try{
+    var ta = document.createElement('textarea');
+    ta.value = t;
+    ta.style.position = 'fixed'; ta.style.top = '0'; ta.style.left = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select(); ta.setSelectionRange(0, t.length);
+    var ok = document.execCommand && document.execCommand('copy');
+    document.body.removeChild(ta);
+    return !!ok;
+  }catch(e){ return false; }
+}
+/* 그래도 안 되면 — 글을 띄워 드린다.  손으로 길게 눌러 복사하시면 된다 */
+function showText(t){
+  document.getElementById('pop').innerHTML =
+    '<h3>이 글을 복사해 보내세요</h3>' +
+    '<textarea id="tArea" readonly style="width:100%;height:34vh;font:15px/1.6 inherit;' +
+    'padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);' +
+    'color:var(--txt);resize:none"></textarea>' +
+    '<div class="miss" style="font-size:14px">글을 길게 눌러 전체 선택한 뒤 복사하십시오.</div>' +
+    '<div class="btns"><button class="b1" id="tSel">전체 선택</button>' +
+    '<button class="b2" id="tNo">닫기</button></div>';
+  open2();
+  var ta = document.getElementById('tArea');
+  ta.value = t;
+  document.getElementById('tSel').onclick = function(){
+    ta.focus(); ta.select(); ta.setSelectionRange(0, t.length);
+  };
+  document.getElementById('tNo').onclick = close2;
+}
+document.getElementById('btnSend').onclick = function(){
+  var t = text();
+  if(!t){ toast('담은 것이 없습니다'); return; }
+  if(navigator.share){
+    navigator.share({text:t}).then(function(){}, function(err){
+      if(err && err.name === 'AbortError') return;      /* 사용자가 취소한 것 */
+      if(oldCopy(t)) toast('복사했습니다. 카톡에 붙여 넣으세요');
+      else showText(t);
+    });
+    return;
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(
+      function(){ toast('복사했습니다. 카톡에 붙여 넣으세요'); },
+      function(){ if(oldCopy(t)) toast('복사했습니다. 카톡에 붙여 넣으세요'); else showText(t); });
+    return;
+  }
+  if(oldCopy(t)) toast('복사했습니다. 카톡에 붙여 넣으세요');
+  else showText(t);
+};
+
+load();
+/* 저장본에 있던 「내가 넣은 것」을 목록에 되살린다 */
+Object.keys(S.pick).forEach(function(k){
+  var has = false;
+  for(var i=0;i<ALL.length;i++) if(ALL[i].name===k) has = true;
+  if(!has) ALL.push({name:k, cat:MINE});
+});
+render();
+})();
+</script>
+
+</body>
+</html>
