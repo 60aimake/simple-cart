@@ -85,6 +85,20 @@ body.shop .li .nm{font-size:17px;font-weight:700}
 body.shop .ck{width:34px;height:34px}
 body.shop .ck.on::after{left:10px;top:5px;width:8px;height:15px}
 body.shop .qty{flex:0 1 44px;font-size:16px}
+/* 좁은 폰(아이폰 375~393px)에서도 3열로 — 2026-11-17 실측 보정
+   그 전에는 412px 이상(안드로이드)만 3열이고 아이폰은 2열이었다 */
+@media (max-width:405px){
+  .grid,
+  body.shop .grid{grid-template-columns:repeat(auto-fill,minmax(95px,1fr));gap:6px}
+  .grid{padding:8px}
+  .li{padding:7px 5px 6px;gap:5px}
+  .ctl{gap:4px}
+  .qty,
+  body.shop .qty{flex:0 1 38px;min-width:26px;padding:6px 1px;font-size:15px}
+  .li .nm{font-size:14px}
+  .ck{width:28px;height:28px}
+  .ck.on::after{left:7px;top:3px}
+}
 
 .bar{position:fixed;left:0;right:0;bottom:0;max-width:720px;margin:0 auto;
  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
