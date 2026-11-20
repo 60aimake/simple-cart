@@ -152,7 +152,10 @@ body.shop .qty{flex:0 1 44px;font-size:16px}
   <div class="panel" id="list"></div>
 
   <div id="picker"></div>
-  <div class="ver" id="ver">편한 장바구니 <b>v1.1.2</b> · 2026-11-21<br>링크로 보내기 · 결과 보내기 · 이어서 하기<br>계획 중에는 「장보러 갑니다」 · 담은 것이 0이면 팝업 안 뜸</div>
+  <div id="keep" style="display:none;margin-top:14px;padding:10px 12px;border:1px solid var(--line);
+    border-radius:10px;background:var(--card);color:var(--dim);font-size:13px;line-height:1.7">
+    창을 닫아도 지금까지 누른 것은 남습니다.<br>같은 주소를 다시 누르면 이어서 하실 수 있습니다.</div>
+  <div class="ver" id="ver">편한 장바구니 <b>v1.2.0</b> · 2026-11-21<br>링크로 보내기 · 집에 확인받기 · 이어서 하기<br>계획 중 「장보러 갑니다」 · 장보는 중 「다 샀다」 하나만</div>
 </div>
 
 <div class="bar">
@@ -394,6 +397,13 @@ function render(){
   /* 계획 중에는 「다 샀다」가 쓸모없다 — 샀음 체크박스가 없어 늘 「다 못 샀다」가 나온다.
      그래서 계획 중에는 장보러 넘어가는 단추로 바꾼다 (2026-11-21 친구 실측 · 스샷) */
   document.getElementById('btnDone').textContent = shop ? '다 샀다' : '장보러 갑니다';
+  /* 장보는 중에는 아래 「카톡으로 보내기」를 감춘다.
+     보내기가 두 군데(아래 단추 · 완료 팝업)라 뜻이 모호했다 (2026-11-21 친구 지적) */
+  document.getElementById('btnSend').style.display = shop ? 'none' : '';
+  document.getElementById('btnDone').style.flex = shop ? '1 1 100%' : '';
+  /* 창을 닫아도 남는다는 것을 알려 둔다 — 실제로 저장되므로 겁줄 필요가 없다 */
+  var kp = document.getElementById('keep');
+  if(kp) kp.style.display = (shop && LIST.recv) ? '' : 'none';
 
   var list = document.getElementById('list');
   list.innerHTML = '';
@@ -459,7 +469,7 @@ function row(it, shop){
     ab.textContent = '계획에 없던 것 — 집에 물어보기';
     ab.onclick = function(e){
       e.stopPropagation();
-      sendText(LIST.name + '\n' + label(it) + ' 도 살까요?');
+      sendText(LIST.name + '\n' + label(it) + ' 도 살까요?', '물어볼 말');
     };
     nm.appendChild(ab);
   }
@@ -525,7 +535,7 @@ function popup(){
     h += '<div class="btns"><button class="b2" id="pYes">끝내기</button></div>';
   }
   h += '<div class="btns" style="margin-top:8px"><button class="b1" id="pSend" ' +
-       'style="background:var(--gr);color:#fff;border-color:var(--gr)">결과 보내기</button></div>';
+       'style="background:var(--gr);color:#fff;border-color:var(--gr)">집에 확인받기</button></div>';
   pop.innerHTML = h; open2();
   var no = document.getElementById('pNo');
   /* 더 담으러 → 고르는 창이 있는 「계획 중」으로. 담은 것은 그대로 둔다 */
@@ -536,7 +546,7 @@ function popup(){
   };
   /* 결과 보내기 — 산 것 · 못 산 것 · 더 산 것을 글로 돌려보낸다 */
   var sd = document.getElementById('pSend');
-  if(sd) sd.onclick = function(){ close2(); sendText(resultText()); };
+  if(sd) sd.onclick = function(){ close2(); sendText(resultText(), '확인 요청'); };
 }
 /* 목록을 비우는 것은 따로 — 한 번 더 물어본다 */
 function clearAsk(){
@@ -576,11 +586,12 @@ function resultText(){
     if(it.bought){ (isExtra ? extra : got).push(label(it)); }
     else if(!isExtra){ miss.push(it.name); }
   });
-  var t = LIST.name + ' — 끝났습니다\n';
+  var t = LIST.name + ' — 확인 부탁드립니다\n';
   t += '\n산 것 ' + got.length + '\n';
   t += got.length ? ('  ' + got.join(' · ') + '\n') : '  없음\n';
   if(miss.length){ t += '\n못 산 것 ' + miss.length + '\n'; miss.forEach(function(m){ t += '  ' + m + '\n'; }); }
   if(extra.length){ t += '\n더 산 것 ' + extra.length + '\n  ' + extra.join(' · ') + '\n'; }
+  t += '\n아직 마트에 있습니다.\n계획과 일치됐으면 「ㅇㅋ」 답장^^\n빼거나 더 살 것이 있으면 지금 말씀해 주세요.\n';
   return t;
 }
 function toast(m){
@@ -652,30 +663,33 @@ function isTouch(){
   }catch(e){ return false; }
 }
 /* 복사로 간다 — 세 겹으로 받쳐 둔다 */
-function copyThen(t){
+function copyThen(t, what){
+  /* 무엇을 복사했는지 밝힌다 — 「복사했습니다」만 뜨면 목록인지 결과인지 알 수 없다
+     (2026-11-21 친구 : 「다 샀다, 카톡으로 보내기의 차이가 없는데?」) */
+  var msg = (what || '글') + ' — 복사했습니다. 카톡에 붙여 넣으세요';
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(t).then(
-      function(){ toast('복사했습니다. 카톡에 붙여 넣으세요'); },
-      function(){ if(oldCopy(t)) toast('복사했습니다. 카톡에 붙여 넣으세요'); else showText(t); });
+      function(){ toast(msg); },
+      function(){ if(oldCopy(t)) toast(msg); else showText(t); });
     return;
   }
-  if(oldCopy(t)) toast('복사했습니다. 카톡에 붙여 넣으세요');
+  if(oldCopy(t)) toast(msg);
   else showText(t);
 }
 /* 폰·태블릿 : 공유 시트 → 카톡이 목록에 뜬다
    PC        : 공유 시트를 건너뛰고 바로 복사한다 (막다른 길을 없앴다) */
-function sendText(t){
+function sendText(t, what){
   if(navigator.share && isTouch()){
     navigator.share({text:t}).then(function(){}, function(err){
       /* 사용자가 공유창을 닫은 것이면 조용히 끝낸다.
          여기서 복사를 시도하면 아이폰은 손가락 누른 순간이 지나 복사가 막히고,
          맨 마지막 보루인 「이 글을 복사해 보내세요」 창이 뜬다 — 2026-11-17 친구 실측 */
       if(err && err.name === 'AbortError') return;
-      copyThen(t);
+      copyThen(t, what);
     });
     return;
   }
-  copyThen(t);
+  copyThen(t, what);
 }
 /* 보내기 직전에 이름을 한 번 묻는다.
    이름을 붙여야 나중에 카톡에서 「김장」으로 찾을 수 있다 */
@@ -701,7 +715,7 @@ function askName(){
     close2();
     var t = text();
     if(!t){ toast('담은 것이 없습니다'); return; }
-    sendText(t);
+    sendText(t, '장보기 목록');
   }
   document.getElementById('nNo').onclick = close2;
   document.getElementById('nGo').onclick = go;
