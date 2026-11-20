@@ -152,7 +152,7 @@ body.shop .qty{flex:0 1 44px;font-size:16px}
   <div class="panel" id="list"></div>
 
   <div id="picker"></div>
-  <div class="ver" id="ver">편한 장바구니 <b>v1.1.0</b> · 2026-11-21<br>링크로 보내기 · 결과 보내기 · 이어서 하기 추가</div>
+  <div class="ver" id="ver">편한 장바구니 <b>v1.1.1</b> · 2026-11-21<br>링크로 보내기 · 결과 보내기 · 이어서 하기<br>계획 중에는 「장보러 갑니다」로 바뀜</div>
 </div>
 
 <div class="bar">
@@ -391,6 +391,9 @@ function render(){
     P.length ? ('살 것 ' + c.items + ' · 담음 ' + c.got) : '';
   document.getElementById('h2list').firstChild.nodeValue = shop ? '장바구니' : '살 것';
   document.getElementById('btnClear').style.display = shop ? 'none' : '';
+  /* 계획 중에는 「다 샀다」가 쓸모없다 — 샀음 체크박스가 없어 늘 「다 못 샀다」가 나온다.
+     그래서 계획 중에는 장보러 넘어가는 단추로 바꾼다 (2026-11-21 친구 실측 · 스샷) */
+  document.getElementById('btnDone').textContent = shop ? '다 샀다' : '장보러 갑니다';
 
   var list = document.getElementById('list');
   list.innerHTML = '';
@@ -596,7 +599,15 @@ document.getElementById('btnAdd').onclick = function(){
 document.getElementById('inp').addEventListener('keydown', function(e){
   if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('btnAdd').click(); }
 });
-document.getElementById('btnDone').onclick = popup;
+document.getElementById('btnDone').onclick = function(){
+  if(S.mode !== 'shop'){
+    if(!picked().length){ toast('살 것을 먼저 담으세요'); return; }
+    S.mode = 'shop'; render();
+    toast('산 것을 하나씩 눌러 표시하세요');
+    return;
+  }
+  popup();
+};
 document.getElementById('btnClear').onclick = clearAsk;
 document.getElementById('mask').onclick = function(e){ if(e.target.id === 'mask') close2(); };
 /* 옛 방식 복사 — 주소가 https 가 아니어도 되는 길 */
