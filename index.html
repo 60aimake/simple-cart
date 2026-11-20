@@ -54,6 +54,8 @@ h2{font-size:15px;color:var(--dim);margin:18px 0 8px;font-weight:700;
  flex-direction:column;gap:6px;min-width:0;overflow:hidden}
 .li .nm{font-size:15px;line-height:1.2;word-break:keep-all;overflow-wrap:anywhere}
 .li .unit{color:var(--dim);font-size:13px}
+.li .askhome{display:block;margin-top:5px;padding:5px 9px;border:1px solid var(--yl);
+  background:transparent;color:var(--yl);border-radius:8px;font:600 13px/1.3 inherit;cursor:pointer}
 .ctl{display:flex;align-items:center;gap:5px;justify-content:space-between;min-width:0}
 .qty{flex:0 1 46px;min-width:30px;padding:6px 2px;text-align:center;font-size:16px;
  border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--txt)}
@@ -219,13 +221,69 @@ function add(name, qty, unit){
   else { if(qty) S.pick[name].qty = qty; if(unit) S.pick[name].unit = unit; }
 }
 
+/* ───── 링크 공유 (2026-11-21) ─────
+   목록을 주소 뒤 # 에 담는다.  # 뒤는 서버로 전송되지 않는다 → 서버 0원
+   기본 품목은 번호로, 내가 넣은 것만 글자로 담아 주소를 짧게 유지한다 */
+var DATA_V = '1';
+var LIST = { name:'', recv:false, base:null, key:'shop2' };
+
+function idxOf(n){ for(var i=0;i<ALL.length;i++) if(ALL[i].name===n) return i; return -1; }
+function hash32(t){
+  var h = 5381, i;
+  for(i=0;i<t.length;i++){ h = ((h*33) ^ t.charCodeAt(i)) >>> 0; }
+  return h.toString(36);
+}
+function todayName(){
+  var d = new Date();
+  return (d.getMonth()+1) + '월 ' + d.getDate() + '일 장보기';
+}
+function mkLink(){
+  var ds = picked().map(function(it){
+    var i = idxOf(it.name), b;
+    if(i >= 0 && ALL[i].cat !== MINE) b = String(i);
+    else b = '~' + encodeURIComponent(it.name);
+    var q = (it.qty > 1) ? it.qty : '';
+    var u = it.unit || '';
+    if(u) return b + ':' + q + ':' + encodeURIComponent(u);
+    if(q) return b + ':' + q;
+    return b;
+  }).join(',');
+  var base = location.origin + location.pathname;
+  return base + '#v=' + DATA_V + '&n=' + encodeURIComponent(LIST.name) + '&d=' + ds;
+}
+function readHash(){
+  var h = (location.hash || '').replace(/^#/, '');
+  if(!h) return null;
+  var o = {};
+  h.split('&').forEach(function(p){
+    var k = p.indexOf('=');
+    if(k > 0) o[p.slice(0,k)] = p.slice(k+1);
+  });
+  if(!o.d) return null;
+  var items = [];
+  o.d.split(',').forEach(function(t){
+    if(!t) return;
+    var a = t.split(':'), nm = null;
+    if(a[0].charAt(0) === '~'){ try{ nm = decodeURIComponent(a[0].slice(1)); }catch(e){ nm = a[0].slice(1); } }
+    else { var i = parseInt(a[0], 10); if(!isNaN(i) && ALL[i]) nm = ALL[i].name; }
+    if(!nm) return;
+    var u = '';
+    if(a[2]){ try{ u = decodeURIComponent(a[2]); }catch(e){ u = a[2]; } }
+    items.push({ name:nm, qty: a[1] ? (parseInt(a[1],10) || 1) : 1, unit:u });
+  });
+  if(!items.length) return null;
+  var nm2 = '장보기';
+  if(o.n){ try{ nm2 = decodeURIComponent(o.n) || '장보기'; }catch(e){} }
+  return { name:nm2, items:items, raw:o.d };
+}
+
 /* ───── 저장 ───── */
 function save(){
-  try{ localStorage.setItem('shop2', JSON.stringify(S.pick)); }catch(e){}
+  try{ localStorage.setItem(LIST.key, JSON.stringify(S.pick)); }catch(e){}
 }
 function load(){
   try{
-    var r = localStorage.getItem('shop2');
+    var r = localStorage.getItem(LIST.key);
     if(r){ var d = JSON.parse(r); if(d && typeof d === 'object') S.pick = d; }
   }catch(e){}
 }
@@ -388,6 +446,17 @@ function row(it, shop){
   nm.className = 'nm';
   nm.textContent = it.name;
   if(it.unit){ var u = document.createElement('div'); u.className='unit'; u.textContent=it.unit; nm.appendChild(u); }
+  /* 받은 목록에 없던 것 — 장보는 중에만 표시하고, 누르면 집에 한 줄 물어본다 */
+  if(shop && LIST.base && LIST.base.indexOf(it.name) < 0){
+    var ab = document.createElement('button');
+    ab.className = 'askhome';
+    ab.textContent = '계획에 없던 것 — 집에 물어보기';
+    ab.onclick = function(e){
+      e.stopPropagation();
+      sendText(LIST.name + '\n' + label(it) + ' 도 살까요?');
+    };
+    nm.appendChild(ab);
+  }
   li.appendChild(nm);
 
   var ctl = document.createElement('div');
@@ -449,6 +518,8 @@ function popup(){
   } else {
     h += '<div class="btns"><button class="b2" id="pYes">끝내기</button></div>';
   }
+  h += '<div class="btns" style="margin-top:8px"><button class="b1" id="pSend" ' +
+       'style="background:var(--gr);color:#fff;border-color:var(--gr)">결과 보내기</button></div>';
   pop.innerHTML = h; open2();
   var no = document.getElementById('pNo');
   /* 더 담으러 → 고르는 창이 있는 「계획 중」으로. 담은 것은 그대로 둔다 */
@@ -457,6 +528,9 @@ function popup(){
   document.getElementById('pYes').onclick = function(){
     close2(); S.mode='shop'; render(); toast('끝냈습니다');
   };
+  /* 결과 보내기 — 산 것 · 못 산 것 · 더 산 것을 글로 돌려보낸다 */
+  var sd = document.getElementById('pSend');
+  if(sd) sd.onclick = function(){ close2(); sendText(resultText()); };
 }
 /* 목록을 비우는 것은 따로 — 한 번 더 물어본다 */
 function clearAsk(){
@@ -477,12 +551,31 @@ function clearAsk(){
 function open2(){ document.getElementById('mask').className = 'mask on'; }
 function close2(){ document.getElementById('mask').className = 'mask'; }
 
+function label(it){
+  return it.name + (it.unit ? ' ' + it.unit : (it.qty > 1 ? ' ' + it.qty : ''));
+}
 function text(){
   var out = [];
+  picked().forEach(function(it){ out.push('□ ' + label(it)); });
+  if(!out.length) return '';
+  return LIST.name + '\n\n' + out.join('\n') +
+         '\n\n' + mkLink() +
+         '\n(위 주소를 누르면 하나씩 눌러 가며 장보실 수 있습니다)';
+}
+/* 장을 다 본 뒤 집으로 돌려보내는 글 */
+function resultText(){
+  var got = [], miss = [], extra = [];
   picked().forEach(function(it){
-    out.push('□ ' + it.name + (it.unit ? ' ' + it.unit : (it.qty > 1 ? ' ' + it.qty : '')));
+    var isExtra = !!(LIST.base && LIST.base.indexOf(it.name) < 0);
+    if(it.bought){ (isExtra ? extra : got).push(label(it)); }
+    else if(!isExtra){ miss.push(it.name); }
   });
-  return out.length ? ('편한 장바구니\n' + out.join('\n')) : '';
+  var t = LIST.name + ' — 끝났습니다\n';
+  t += '\n산 것 ' + got.length + '\n';
+  t += got.length ? ('  ' + got.join(' · ') + '\n') : '  없음\n';
+  if(miss.length){ t += '\n못 산 것 ' + miss.length + '\n'; miss.forEach(function(m){ t += '  ' + m + '\n'; }); }
+  if(extra.length){ t += '\n더 산 것 ' + extra.length + '\n  ' + extra.join(' · ') + '\n'; }
+  return t;
 }
 function toast(m){
   var t = document.getElementById('toast');
@@ -555,11 +648,9 @@ function copyThen(t){
   if(oldCopy(t)) toast('복사했습니다. 카톡에 붙여 넣으세요');
   else showText(t);
 }
-document.getElementById('btnSend').onclick = function(){
-  var t = text();
-  if(!t){ toast('담은 것이 없습니다'); return; }
-  /* 폰·태블릿 : 공유 시트 → 카톡이 목록에 뜬다
-     PC        : 공유 시트를 건너뛰고 바로 복사한다 (막다른 길을 없앴다) */
+/* 폰·태블릿 : 공유 시트 → 카톡이 목록에 뜬다
+   PC        : 공유 시트를 건너뛰고 바로 복사한다 (막다른 길을 없앴다) */
+function sendText(t){
   if(navigator.share && isTouch()){
     navigator.share({text:t}).then(function(){}, function(err){
       /* 사용자가 공유창을 닫은 것이면 조용히 끝낸다.
@@ -571,8 +662,78 @@ document.getElementById('btnSend').onclick = function(){
     return;
   }
   copyThen(t);
+}
+/* 보내기 직전에 이름을 한 번 묻는다.
+   이름을 붙여야 나중에 카톡에서 「김장」으로 찾을 수 있다 */
+function askName(){
+  var cur = LIST.name.replace(/\s*장보기\s*$/, '');
+  document.getElementById('pop').innerHTML =
+    '<h3>무슨 장보기입니까?</h3>' +
+    '<input id="nmIn" type="text" autocomplete="off" placeholder="예: 김장" ' +
+    'style="width:100%;padding:12px;font:17px/1.4 inherit;border:1px solid var(--line);' +
+    'border-radius:10px;background:var(--bg);color:var(--txt)">' +
+    '<div class="miss" style="font-size:14px">비워 두면 <b>' + todayName() + '</b> 로 보냅니다.<br>' +
+    '이름을 붙이면 나중에 카톡에서 찾기 쉽습니다.</div>' +
+    '<div class="btns"><button class="b1" id="nNo">그만</button>' +
+    '<button class="b2" id="nGo">보내기</button></div>';
+  open2();
+  var inp = document.getElementById('nmIn');
+  inp.value = cur;
+  setTimeout(function(){ try{ inp.focus(); }catch(e){} }, 60);
+  function go(){
+    var v = (inp.value || '').trim();
+    LIST.name = v ? (/장보기$/.test(v) ? v : (v + ' 장보기')) : todayName();
+    close2();
+    var t = text();
+    if(!t){ toast('담은 것이 없습니다'); return; }
+    sendText(t);
+  }
+  document.getElementById('nNo').onclick = close2;
+  document.getElementById('nGo').onclick = go;
+  inp.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); go(); } });
+}
+document.getElementById('btnSend').onclick = function(){
+  if(!picked().length){ toast('담은 것이 없습니다'); return; }
+  askName();
 };
 
+/* 받은 목록을 그대로 장바구니에 올린다 */
+function applyGot(g){
+  S.pick = {};
+  g.items.forEach(function(x){
+    if(idxOf(x.name) < 0) ALL.push({ name:x.name, cat:MINE });
+    S.pick[x.name] = { name:x.name, cat:catOf(x.name), qty:x.qty, bought:false, unit:x.unit };
+  });
+}
+/* 같은 링크를 다시 열었을 때 — 어디까지 했는지 먼저 알려 준다 */
+function resumeAsk(g){
+  var c = count();
+  var h = '<h3>' + LIST.name + '</h3>';
+  h += '<div class="line"><span>지난번까지</span><span>' + c.items + ' 개 중 ' + c.got + ' 개</span></div>';
+  if(c.miss.length) h += '<div class="miss">남은 것<br><b>' + c.miss.join(' · ') + '</b></div>';
+  else h += '<div class="miss">남은 것이 없습니다.</div>';
+  h += '<div class="btns"><button class="b1" id="rNew">처음부터</button>' +
+       '<button class="b2" id="rGo">이어서 하기</button></div>';
+  document.getElementById('pop').innerHTML = h;
+  open2();
+  document.getElementById('rGo').onclick = function(){ close2(); render(); };
+  document.getElementById('rNew').onclick = function(){
+    applyGot(g); save(); close2(); render(); toast('처음부터 시작합니다');
+  };
+}
+
+/* ───── 시작 ───── */
+var GOT = readHash();
+if(GOT){
+  LIST.recv = true;
+  LIST.name = GOT.name;
+  LIST.base = GOT.items.map(function(x){ return x.name; });
+  LIST.key  = 'shopR_' + hash32(GOT.raw);
+  S.mode = 'shop';
+  try{ document.querySelector('h1').firstChild.nodeValue = LIST.name + ' '; }catch(e){}
+} else {
+  LIST.name = todayName();
+}
 load();
 /* 저장본에 있던 「내가 넣은 것」을 목록에 되살린다 */
 Object.keys(S.pick).forEach(function(k){
@@ -580,7 +741,12 @@ Object.keys(S.pick).forEach(function(k){
   for(var i=0;i<ALL.length;i++) if(ALL[i].name===k) has = true;
   if(!has) ALL.push({name:k, cat:MINE});
 });
-render();
+if(GOT){
+  if(Object.keys(S.pick).length){ render(); resumeAsk(GOT); }
+  else { applyGot(GOT); save(); render(); }
+} else {
+  render();
+}
 })();
 </script>
 
