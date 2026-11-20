@@ -155,7 +155,7 @@ body.shop .qty{flex:0 1 44px;font-size:16px}
   <div id="keep" style="display:none;margin-top:14px;padding:10px 12px;border:1px solid var(--line);
     border-radius:10px;background:var(--card);color:var(--dim);font-size:13px;line-height:1.7">
     창을 닫아도 지금까지 누른 것은 남습니다.<br>같은 주소를 다시 누르면 이어서 하실 수 있습니다.</div>
-  <div class="ver" id="ver">편한 장바구니 <b>v1.2.0</b> · 2026-11-21<br>링크로 보내기 · 집에 확인받기 · 이어서 하기<br>계획 중 「장보러 갑니다」 · 장보는 중 「다 샀다」 하나만</div>
+  <div class="ver" id="ver">편한 장바구니 <b>v1.2.1</b> · 2026-11-21<br>혼자서도 둘이서도 쓰입니다<br>링크로 보내기 · 집에 확인받기 · 이어서 하기</div>
 </div>
 
 <div class="bar">
@@ -534,8 +534,12 @@ function popup(){
   } else {
     h += '<div class="btns"><button class="b2" id="pYes">끝내기</button></div>';
   }
-  h += '<div class="btns" style="margin-top:8px"><button class="b1" id="pSend" ' +
-       'style="background:var(--gr);color:#fff;border-color:var(--gr)">집에 확인받기</button></div>';
+  /* 링크로 받은 사람에게만 보여 준다 — 혼자 장보는 분에게는 「집」이 없다
+     (2026-11-21 친구 : 「혼자 살 때는?」) */
+  if(LIST.recv){
+    h += '<div class="btns" style="margin-top:8px"><button class="b1" id="pSend" ' +
+         'style="background:var(--gr);color:#fff;border-color:var(--gr)">집에 확인받기</button></div>';
+  }
   pop.innerHTML = h; open2();
   var no = document.getElementById('pNo');
   /* 더 담으러 → 고르는 창이 있는 「계획 중」으로. 담은 것은 그대로 둔다 */
