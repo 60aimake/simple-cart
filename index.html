@@ -152,7 +152,7 @@ body.shop .qty{flex:0 1 44px;font-size:16px}
   <div class="panel" id="list"></div>
 
   <div id="picker"></div>
-  <div class="ver" id="ver">편한 장바구니 <b>v1.1.1</b> · 2026-11-21<br>링크로 보내기 · 결과 보내기 · 이어서 하기<br>계획 중에는 「장보러 갑니다」로 바뀜</div>
+  <div class="ver" id="ver">편한 장바구니 <b>v1.1.2</b> · 2026-11-21<br>링크로 보내기 · 결과 보내기 · 이어서 하기<br>계획 중에는 「장보러 갑니다」 · 담은 것이 0이면 팝업 안 뜸</div>
 </div>
 
 <div class="bar">
@@ -758,7 +758,12 @@ Object.keys(S.pick).forEach(function(k){
   if(!has) ALL.push({name:k, cat:MINE});
 });
 if(GOT){
-  if(Object.keys(S.pick).length){ render(); resumeAsk(GOT); }
+  if(Object.keys(S.pick).length){
+    render();
+    /* 담은 것이 하나라도 있을 때만 물어본다.
+       0 개면 이어서 할 것이 없어 팝업이 한 번 더 누르게만 만든다 (2026-11-21 친구 실측) */
+    if(count().got > 0) resumeAsk(GOT);
+  }
   else { applyGot(GOT); save(); render(); }
 } else {
   render();
